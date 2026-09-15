@@ -135,9 +135,9 @@ export function ChatPage() {
 
   return (
     <main
-      className={`flex h-dvh min-h-[640px] flex-col bg-muted/40 lg:flex-row ${resizing ? "select-none" : ""}`}
+      className={`flex h-dvh min-h-0 flex-col overflow-hidden bg-muted/40 md:min-h-[640px] md:flex-row ${resizing ? "select-none" : ""}`}
     >
-      <section className="flex h-[48dvh] min-h-0 min-w-0 flex-col border-b border-border lg:h-auto lg:flex-1 lg:border-b-0 lg:border-r">
+      <section className="hidden min-h-0 min-w-0 flex-col border-b border-border md:flex md:h-auto md:flex-1 md:border-b-0 md:border-r">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-3 sm:h-16 sm:px-5">
           <Button
             variant="ghost"
@@ -178,19 +178,21 @@ export function ChatPage() {
           event.currentTarget.setPointerCapture?.(event.pointerId);
           setResizing(true);
         }}
-        className={`group hidden w-1 shrink-0 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 lg:flex ${resizing ? "bg-primary" : ""}`}
+        className={`group hidden w-1 shrink-0 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 md:flex ${resizing ? "bg-primary" : ""}`}
       >
         <span className="h-10 w-0.5 rounded-full bg-muted-foreground/50 group-hover:bg-primary" />
       </div>
       <section
-        className="flex h-[52dvh] min-h-0 w-full shrink-0 flex-col bg-background lg:h-auto lg:w-[var(--chat-width)]"
+        className="flex h-full min-h-0 w-full shrink-0 flex-col bg-background md:h-auto md:w-(--chat-width)"
         style={{ "--chat-width": `${chatWidth}px` }}
       >
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 sm:h-16 sm:px-5">
           <Sparkles size={18} className="text-primary" />
           <div>
             <h1 className="text-sm font-semibold">ChatPDF</h1>
-            <p className="text-xs text-muted-foreground">Ask about your PDF</p>
+            <p className="max-w-[min(60vw,20rem)] truncate text-xs text-muted-foreground">
+              {document?.filename || "Ask about your PDF"}
+            </p>
           </div>
         </header>
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
@@ -200,13 +202,15 @@ export function ChatPage() {
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse text-right" : ""}`}
+                className={`animate-in fade-in-0 duration-300 motion-reduce:animate-none ${message.role === "user" ? "justify-end text-right slide-in-from-right-2" : "slide-in-from-left-2"} flex items-start gap-3`}
               >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  {message.role === "assistant" ? <Sparkles size={14} /> : "U"}
-                </div>
+                {message.role === "assistant" && (
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <Sparkles size={14} />
+                  </div>
+                )}
                 <div
-                  className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "assistant" ? "bg-muted" : "bg-primary text-primary-foreground"}`}
+                  className={`min-w-0 max-w-[82%] wrap-break-word rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "assistant" ? "rounded-tl-md bg-muted" : "rounded-tr-md bg-primary text-primary-foreground"}`}
                 >
                   {message.role === "assistant" ? (
                     <AssistantMarkdown content={message.content} />
@@ -218,12 +222,14 @@ export function ChatPage() {
             ))
           )}
           {sending && (
-            <p
-              className="text-xs text-muted-foreground"
+            <div
+              className="flex items-center gap-1"
               aria-label="Assistant is thinking"
             >
-              <span className="animate-pulse">{thinkingMessage}...</span>
-            </p>
+              <span className="size-2 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
+              <span className="size-2 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
+              <span className="size-2 animate-bounce rounded-full bg-primary" />
+            </div>
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -240,11 +246,11 @@ export function ChatPage() {
           />
           <Button
             type="submit"
-            size="icon"
+            size="icon-lg"
             disabled={!question.trim() || sending}
             aria-label="Send question"
           >
-            <Send size={16} />
+            <Send size={18} />
           </Button>
         </form>
       </section>
