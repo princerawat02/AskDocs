@@ -1,0 +1,24 @@
+{
+  "name": "chat-with-pdf",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"pnpm --prefix server dev\" \"pnpm --prefix client dev\"",
+    "start": "concurrently \"pnpm --prefix server start\" \"pnpm --prefix client start\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.20.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

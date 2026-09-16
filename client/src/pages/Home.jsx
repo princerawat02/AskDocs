@@ -83,9 +83,19 @@ export function Home() {
 
   if (loading)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-        Opening document...
-      </div>
+      <main
+        className="flex min-h-screen flex-col items-center justify-center bg-background"
+        aria-busy="true"
+      >
+        <img
+          src="/scanning.svg"
+          alt="Loading"
+          className="size-64 object-contain sm:size-80"
+        />
+        <p className="-mt-3 text-sm text-muted-foreground">
+          Preparing your document...
+        </p>
+      </main>
     );
 
   const userName = user?.name || "Signed-in user";

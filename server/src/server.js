@@ -8,6 +8,7 @@ import { pool } from "./db/db.js";
 import pdfRoutes from "./routes/pdf.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
 import { searchSimilarChunks } from "./services/rag.service.js";
 import { fileURLToPath } from "url";
 
@@ -45,6 +46,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/pdf", pdfRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
 app.get("/test", async (req, res) => {
   const results = await searchSimilarChunks(

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { ChatPage } from "./pages/ChatPage";
-import { Document } from "./pages/Document";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
@@ -15,7 +14,6 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<Home />} />
         <Route path="/app/chat/:chatId" element={<ChatPage />} />
-        <Route path="/app/document/:documentId" element={<Document />} />
       </Route>
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/app" replace />} />

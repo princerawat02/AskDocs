@@ -5,6 +5,7 @@ import {
   getChatHistory,
   searchSimilarChunks,
 } from "../services/rag.service.js";
+import { recordTokenUsage } from "../services/recordTokenUsage.js";
 
 export async function createChat(req, res) {
   try {
@@ -144,7 +145,7 @@ export async function askQuestion(req, res) {
 
     const userId = req.user.userId;
 
-    if (!question) {
+    if (!question?.trim()) {
       return res.status(400).json({
         success: false,
         message: "Question is required",
@@ -185,18 +186,33 @@ export async function askQuestion(req, res) {
       [uuidv4(), chatId, "user", question],
     );
 
-    // get older chat history
+    // 3. Get older chat history
     const history = await getChatHistory(chatId);
 
-    // 3. Find relevant PDF chunks
-    const chunks = await searchSimilarChunks(question, documentId);
+    // 4. Find relevant PDF chunks
+    const chunks = await searchSimilarChunks(
+      question,
+      documentId,
+    );
 
-    // 4. Generate AI answer
-    const answer = await generateAnswer(question, chunks, history);
+    // 5. Generate AI answer
+    const { answer, usage } = await generateAnswer(
+      question,
+      chunks,
+      history,
+    );
 
-    const sources = [...new Set(chunks.flatMap((chunk) => chunk.page_numbers))];
+    // 6. Record token usage
+    await recordTokenUsage(userId, usage);
 
-    // 5. Save AI message
+    // 7. Get source pages
+    const sources = [
+      ...new Set(
+        chunks.flatMap((chunk) => chunk.page_numbers),
+      ),
+    ];
+
+    // 8. Save AI message
     await pool.query(
       `
         INSERT INTO messages (
@@ -210,8 +226,8 @@ export async function askQuestion(req, res) {
       [uuidv4(), chatId, "assistant", answer],
     );
 
-    // 6. Return answer
-    res.json({
+    // 9. Return answer
+    return res.json({
       success: true,
       answer,
       sources,
@@ -219,7 +235,7 @@ export async function askQuestion(req, res) {
   } catch (error) {
     console.error(error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to answer question",
     });

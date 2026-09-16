@@ -1,5 +1,6 @@
 import { FileText, LogOut, Plus, Sparkles, X } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
+import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/Button";
 
 export function Sidebar({
@@ -11,6 +12,10 @@ export function Sidebar({
   open,
   onClose,
 }) {
+  const displayName =
+    user?.name?.trim() || user?.email?.split("@")[0] || "User";
+  const initials = displayName.slice(0, 2).toUpperCase();
+
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-30 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-[#fbfcfe] transition-transform lg:static lg:translate-x-0 ${open ? "translate-x-0" : ""}`}
@@ -95,14 +100,18 @@ export function Sidebar({
       </div>
       <div className="border-t border-slate-200/80 p-3">
         <div className="flex items-center gap-3 rounded-xl p-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e7d8cc] text-xs font-bold text-[#765542]">
-            {user.initials}
-          </div>
+          <Avatar className="size-9 ring-2 ring-sky-100 after:border-slate-900/10">
+            <AvatarFallback className="bg-slate-900 text-xs font-bold text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-700">
-              {user.name}
+              {displayName}
             </p>
-            <p className="truncate text-xs text-slate-400">{user.email}</p>
+            <p className="truncate text-xs text-slate-400">
+              {user?.email || "Your account"}
+            </p>
           </div>
           <Button
             variant="ghost"

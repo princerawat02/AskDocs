@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { askQuestion, getChats, getMessages } from "../services/chat.api";
 import { getDocument } from "../services/document.api";
+import { getTokenLimitStatus } from "../services/user.api";
 import { PdfViewer } from "../components/PdfViewer";
 import { AssistantMarkdown } from "../components/chat/ChatMessage";
 import { Button } from "../components/ui/Button";
@@ -32,6 +33,7 @@ export function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [tokenLimitReached, setTokenLimitReached] = useState(false);
   const [chatWidth, setChatWidth] = useState(500);
   const [resizing, setResizing] = useState(false);
   const [thinkingMessage, setThinkingMessage] = useState(THINKING_MESSAGES[0]);
@@ -81,13 +83,19 @@ export function ChatPage() {
   }, [resizing]);
 
   useEffect(() => {
-    Promise.all([getChats(), getMessages(chatId)])
-      .then(async ([chatResult, messageResult]) => {
+    Promise.all([getChats(), getMessages(chatId), getTokenLimitStatus()])
+      .then(async ([chatResult, messageResult, tokenLimitResult]) => {
         const chat = (chatResult.chats || []).find(
           (item) => item.id === chatId,
         );
         if (!chat) throw new Error("Chat not found");
         const result = await getDocument(chat.document_id);
+        if (tokenLimitResult.reachedLimit) {
+          setTokenLimitReached(true);
+          setError(
+            "You have reached your monthly AI question limit. You can continue chatting when your limit resets.",
+          );
+        }
         setDocument(result.document);
         setMessages(messageResult.messages || []);
       })
@@ -103,9 +111,10 @@ export function ChatPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!question.trim() || sending) return;
+    if (!question.trim() || sending || tokenLimitReached) return;
     const text = question.trim();
     setQuestion("");
+    setError("");
     setMessages((current) => [
       ...current,
       { id: `local-${Date.now()}`, role: "user", content: text },
@@ -123,9 +132,17 @@ export function ChatPage() {
         },
       ]);
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.message || "Could not send your question",
-      );
+      if (requestError.response?.status === 429) {
+        setTokenLimitReached(true);
+        setError(
+          "You have reached your monthly AI question limit. You can continue chatting when your limit resets.",
+        );
+      } else {
+        setError(
+          requestError.response?.data?.message ||
+            "Could not send your question",
+        );
+      }
     } finally {
       setSending(false);
     }
@@ -187,6 +204,15 @@ export function ChatPage() {
         style={{ "--chat-width": `${chatWidth}px` }}
       >
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 sm:h-16 sm:px-5">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="md:hidden"
+            onClick={() => navigate("/app")}
+            aria-label="Back to documents"
+          >
+            <ArrowLeft size={18} />
+          </Button>
           <Sparkles size={18} className="text-primary" />
           <div>
             <h1 className="text-sm font-semibold">ChatPDF</h1>
@@ -221,6 +247,14 @@ export function ChatPage() {
               </div>
             ))
           )}
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
+              {error}
+            </div>
+          )}
           {sending && (
             <div
               className="flex items-center gap-1"
@@ -241,13 +275,17 @@ export function ChatPage() {
             labelClassName="min-w-0 flex-1"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask a question..."
-            disabled={sending}
+            placeholder={
+              tokenLimitReached
+                ? "Monthly question limit reached"
+                : "Ask a question..."
+            }
+            disabled={sending || tokenLimitReached}
           />
           <Button
             type="submit"
             size="icon-lg"
-            disabled={!question.trim() || sending}
+            disabled={!question.trim() || sending || tokenLimitReached}
             aria-label="Send question"
           >
             <Send size={18} />

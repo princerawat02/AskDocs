@@ -118,9 +118,21 @@ Always answer naturally, accurately, and concisely.
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages,
+    max_completion_tokens: 500,
   });
 
-  return response.choices[0].message.content;
+  const answer = response.choices[0].message.content;
+
+  const usage = {
+    inputTokens: response.usage?.prompt_tokens ?? 0,
+    outputTokens: response.usage?.completion_tokens ?? 0,
+    totalTokens: response.usage?.total_tokens ?? 0,
+  };
+
+  return {
+    answer,
+    usage,
+  };
 }
 
 export async function getChatHistory(chatId) {

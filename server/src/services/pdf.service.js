@@ -1,7 +1,7 @@
 import fs from "fs";
 import { PDFParse } from "pdf-parse";
 import { v4 as uuidv4 } from "uuid";
-import path from 'path'
+import path from "path";
 import { supabase } from "../db/supabase.js";
 
 import { pool } from "../db/db.js";
@@ -29,8 +29,12 @@ export async function processPdf(file, userId) {
     await parser.destroy();
 
     // 3. Check PDF content
-    if (!data.text || !data.text.trim()) {
-      throw new Error("PDF contains no readable text");
+    const text = data.text?.replace(/\s+/g, " ").trim();
+
+    if (!text || text.length < 50) {
+      throw new Error(
+        "PDF contains insufficient readable text. Scanned/image-only PDFs are not supported.",
+      );
     }
 
     // 4. Create chunks
@@ -73,12 +77,7 @@ export async function processPdf(file, userId) {
         )
         VALUES ($1, $2, $3, $4)
       `,
-      [
-        documentId,
-        userId,
-        file.originalname,
-        fileUrl,
-      ],
+      [documentId, userId, file.originalname, fileUrl],
     );
 
     // 8. Create embeddings + save chunks
@@ -98,13 +97,7 @@ export async function processPdf(file, userId) {
           )
           VALUES ($1, $2, $3, $4, $5)
         `,
-        [
-          uuidv4(),
-          documentId,
-          chunk.content,
-          vector,
-          chunk.pageNumbers,
-        ],
+        [uuidv4(), documentId, chunk.content, vector, chunk.pageNumbers],
       );
     }
 
