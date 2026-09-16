@@ -1,6 +1,6 @@
 import { ArrowLeft, FileText, Send, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { askQuestion, getChats, getMessages } from "../services/chat.api";
 import { getDocument } from "../services/document.api";
 import { getTokenLimitStatus } from "../services/user.api";
@@ -26,6 +26,7 @@ const THINKING_MESSAGES = [
 
 export function ChatPage() {
   const { chatId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [document, setDocument] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -33,6 +34,13 @@ export function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [suggestedQuestions, setSuggestedQuestions] = useState(() =>
+    Array.isArray(location.state?.suggestedQuestions)
+      ? location.state.suggestedQuestions.filter(
+          (suggestedQuestion) => typeof suggestedQuestion === "string",
+        )
+      : [],
+  );
   const [tokenLimitReached, setTokenLimitReached] = useState(false);
   const [chatWidth, setChatWidth] = useState(500);
   const [resizing, setResizing] = useState(false);
@@ -109,12 +117,11 @@ export function ChatPage() {
       .finally(() => setLoading(false));
   }, [chatId]);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (!question.trim() || sending || tokenLimitReached) return;
-    const text = question.trim();
+  async function sendQuestion(text) {
+    if (!text || sending || tokenLimitReached) return;
     setQuestion("");
     setError("");
+    setSuggestedQuestions([]);
     setMessages((current) => [
       ...current,
       { id: `local-${Date.now()}`, role: "user", content: text },
@@ -146,6 +153,11 @@ export function ChatPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    sendQuestion(question.trim());
   }
 
   if (error && !document) return <Status error>{error}</Status>;
@@ -225,27 +237,49 @@ export function ChatPage() {
           {loading ? (
             <ChatSkeletons />
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={`animate-in fade-in-0 duration-300 motion-reduce:animate-none ${message.role === "user" ? "justify-end text-right slide-in-from-right-2" : "slide-in-from-left-2"} flex items-start gap-3`}
-              >
-                {message.role === "assistant" && (
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <Sparkles size={14} />
-                  </div>
-                )}
+            <>
+              {messages.map((message) => (
                 <div
-                  className={`min-w-0 max-w-[82%] wrap-break-word rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "assistant" ? "rounded-tl-md bg-muted" : "rounded-tr-md bg-primary text-primary-foreground"}`}
+                  key={message.id}
+                  className={`animate-in fade-in-0 duration-300 motion-reduce:animate-none ${message.role === "user" ? "justify-end text-right slide-in-from-right-2" : "slide-in-from-left-2"} flex items-start gap-3`}
                 >
-                  {message.role === "assistant" ? (
-                    <AssistantMarkdown content={message.content} />
-                  ) : (
-                    message.content
+                  {message.role === "assistant" && (
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Sparkles size={14} />
+                    </div>
                   )}
+                  <div
+                    className={`min-w-0 max-w-[82%] wrap-break-word rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "assistant" ? "rounded-tl-md bg-muted" : "rounded-tr-md bg-primary text-primary-foreground"}`}
+                  >
+                    {message.role === "assistant" ? (
+                      <AssistantMarkdown content={message.content} />
+                    ) : (
+                      message.content
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {messages.length === 0 && suggestedQuestions.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Start with a question about your document
+                  </p>
+                  <div className="grid gap-2">
+                    {suggestedQuestions.slice(0, 4).map((suggestedQuestion) => (
+                      <button
+                        key={suggestedQuestion}
+                        type="button"
+                        className="rounded-xl border border-border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-primary/50 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => sendQuestion(suggestedQuestion)}
+                        disabled={sending || tokenLimitReached}
+                      >
+                        {suggestedQuestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
           {error && (
             <div

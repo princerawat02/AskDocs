@@ -1,12 +1,12 @@
 import fs from "fs";
 import { PDFParse } from "pdf-parse";
 import { v4 as uuidv4 } from "uuid";
-import path from "path";
 import { supabase } from "../db/supabase.js";
 
 import { pool } from "../db/db.js";
 import { chunkPages } from "../utils/chunkText.js";
 import { createEmbedding } from "./embedding.service.js";
+import { generateSampleQuestions } from "../utils/sampleQuestions.js";
 
 export async function processPdf(file, userId) {
   if (!file) {
@@ -36,6 +36,8 @@ export async function processPdf(file, userId) {
         "PDF contains insufficient readable text. Scanned/image-only PDFs are not supported.",
       );
     }
+
+    const questions = await generateSampleQuestions(text);
 
     // 4. Create chunks
     const chunks = chunkPages(data.pages, 500, 100);
@@ -111,6 +113,7 @@ export async function processPdf(file, userId) {
 
     return {
       documentId,
+      questions,
       filename: file.originalname,
       chunks: chunks.length,
     };

@@ -5,6 +5,7 @@ ChatPDF is a full-stack application for uploading PDF documents and asking quest
 ## Features
 
 - Email and password sign-up and login
+- Show/hide password controls on authentication forms
 - HTTP-only JWT session cookies
 - PDF upload and text extraction
 - PDF storage in Supabase Storage
@@ -12,8 +13,12 @@ ChatPDF is a full-stack application for uploading PDF documents and asking quest
 - Similarity search over document chunks with PostgreSQL/pgvector
 - Chat answers generated with OpenAI `gpt-4o-mini`
 - Source page numbers returned with answers
+- Four AI-generated starter questions after each PDF upload
+- Clickable starter questions that send directly to the chat
+- Monthly AI token usage tracking and limit enforcement
 - In-browser PDF viewer alongside the chat
-- Responsive React interface with dark styling
+- Responsive React interface with mobile chat navigation
+- Loading state with `public/scanning.svg` during PDF processing
 
 ## Stack
 
@@ -94,6 +99,7 @@ JWT_SECRET="use-a-long-random-secret"
 FRONTEND_URL="http://localhost:5173"
 SUPABASE_URL="https://your-project.supabase.co"
 SUPABASE_SECRET_KEY="your-supabase-service-role-key"
+MONTHLY_TOKEN_LIMIT=5000
 ```
 
 `FRONTEND_URL` must match the URL serving the Vite client. Vite uses port `5173` by default. The server's default port is `5000`; set both `PORT` and `VITE_API_URL` consistently if you choose another port.
@@ -109,6 +115,7 @@ The repository currently does not include migrations or a schema file. The serve
 - `chunks`: `id`, `document_id`, `content`, `embedding`, `page_numbers`
 - `chats`: `id`, `user_id`, `document_id`, `created_at`
 - `messages`: `id`, `chat_id`, `role`, `content`, `created_at`
+- `user_usage`: `user_id`, `input_tokens`, `output_tokens`, `total_tokens`, `period_start`
 
 Enable pgvector and define `chunks.embedding` with the dimensionality returned by `text-embedding-3-small` (`1536`). Add foreign keys between users/documents/chats/messages and documents/chunks/chats as appropriate. The application queries `embedding <=> vector` for nearest-neighbor search.
 
@@ -143,20 +150,25 @@ Open the URL printed by Vite, usually [http://localhost:5173](http://localhost:5
 
 All application endpoints are mounted under `/api`. Protected endpoints require the JWT cookie created during login or signup.
 
-| Method | Endpoint                | Purpose                                           |
-| ------ | ----------------------- | ------------------------------------------------- |
-| `GET`  | `/api/health`           | Check server availability                         |
-| `POST` | `/api/auth/signup`      | Create an account                                 |
-| `POST` | `/api/auth/login`       | Start a session                                   |
-| `POST` | `/api/auth/logout`      | Clear the session cookie                          |
-| `GET`  | `/api/auth/me`          | Get the current user                              |
-| `GET`  | `/api/pdf`              | List the signed-in user's documents               |
-| `GET`  | `/api/pdf/:documentId`  | Get one user's document                           |
-| `POST` | `/api/pdf/upload`       | Upload and process a PDF as multipart field `pdf` |
-| `GET`  | `/api/chat`             | List the user's chats                             |
-| `POST` | `/api/chat`             | Create a chat for a document                      |
-| `GET`  | `/api/chat/:chatId`     | Get chat messages                                 |
-| `POST` | `/api/chat/:chatId/ask` | Ask a question with JSON `{ "question": "..." }`  |
+| Method | Endpoint                 | Purpose                                              |
+| ------ | ------------------------ | ---------------------------------------------------- |
+| `GET`  | `/api/health`            | Check server availability                            |
+| `POST` | `/api/auth/signup`       | Create an account                                    |
+| `POST` | `/api/auth/login`        | Start a session                                      |
+| `POST` | `/api/auth/logout`       | Clear the session cookie                             |
+| `GET`  | `/api/auth/me`           | Get the current user                                 |
+| `GET`  | `/api/pdf`               | List the signed-in user's documents                  |
+| `GET`  | `/api/pdf/:documentId`   | Get one user's document                              |
+| `POST` | `/api/pdf/upload`        | Upload/process a PDF; returns four starter questions |
+| `GET`  | `/api/chat`              | List the user's chats                                |
+| `POST` | `/api/chat`              | Create a chat for a document                         |
+| `GET`  | `/api/chat/:chatId`      | Get chat messages                                    |
+| `POST` | `/api/chat/:chatId/ask`  | Ask a question with JSON `{ "question": "..." }`     |
+| `GET`  | `/api/users/token-limit` | Get token usage and monthly limit status             |
+
+When the monthly token limit is reached, `/api/chat/:chatId/ask` returns HTTP
+`429`. The client checks `/api/users/token-limit` when opening a chat, displays
+a friendly message, and disables the composer.
 
 ## Client Routes
 
@@ -164,7 +176,6 @@ All application endpoints are mounted under `/api`. Protected endpoints require 
 - `/signup` - Create an account
 - `/app` - Document workspace
 - `/app/chat/:chatId` - PDF viewer and chat
-- `/app/document/:documentId` - Document route
 
 Unauthenticated users are redirected to `/login`. The root route redirects to `/app`.
 
@@ -190,8 +201,11 @@ pnpm --dir server dev       # Start Express with Node's watch mode
 1. A signed-in user uploads a PDF through the client.
 2. Multer stores it temporarily in `server/src/uploads`.
 3. The server extracts page text with `pdf-parse` and creates overlapping chunks.
-4. The PDF is uploaded to the Supabase `pdfs` bucket.
-5. Each chunk receives an OpenAI embedding and is stored in PostgreSQL.
-6. A chat question is embedded and matched against the document's chunks.
-7. The top three matching chunks are sent to `gpt-4o-mini` as context.
-8. The answer and source page numbers are returned and the messages are persisted.
+4. OpenAI generates four short starter questions from the extracted text.
+5. The PDF is uploaded to the Supabase `pdfs` bucket.
+6. Each chunk receives an OpenAI embedding and is stored in PostgreSQL.
+7. The client creates a chat and displays the generated starter questions.
+8. A typed or clicked question is embedded and matched against the document's chunks.
+9. The top three matching chunks are sent to `gpt-4o-mini` as context.
+10. The answer, source page numbers, and token usage are returned/persisted.
+11. The user's monthly token usage is updated; future questions are blocked at the configured limit.

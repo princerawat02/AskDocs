@@ -67,7 +67,9 @@ export function Home() {
     try {
       const uploadResult = await uploadDocument(file);
       const chatResult = await createChat(uploadResult.documentId);
-      navigate(`/app/chat/${chatResult.chat.id}`);
+      navigate(`/app/chat/${chatResult.chat.id}`, {
+        state: { suggestedQuestions: uploadResult.questions },
+      });
     } catch (requestError) {
       setError(
         requestError.response?.data?.message || "Could not upload document",
